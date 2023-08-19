@@ -107,7 +107,13 @@ change master to master_host='159.75.180.171',master_user='xiaozhang',master_pas
 start slave;
 ```
 
+- 查看从数据库的状态(粘贴到txt文件里看)
 
+```
+show slave status;
+```
+
+![image-20230819115957813](MySql.assets/image-20230819115957813.png)
 
 ### Linux安装MySQL
 
