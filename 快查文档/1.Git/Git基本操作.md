@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # Git基本操作
 
 *Git 是一个开源的分布式版本控制系统，用于敏捷高效地处理任何或小或大的项目。*
@@ -22,6 +21,7 @@
 | -------------------------------- | ---------------------------- |
 | git config  --global user.name   | 用户名 设置用户签名          |
 | git config  --global user.email | 邮箱 设置用户签名            |
+| ssh-keygen -t ed25519 -C  your_email@example.com | 生成新的ssh密钥 |
 | **版本相关命令**                 |                              |
 | git init                         | 初始化本地库                 |
 | git status                       | 查看本地库状态               |
@@ -34,9 +34,12 @@
 | **分支相关命令**                 |                              |
 | git  branch 分支名 | 创建分支                     |
 | git branch -v -r -a              | 查看分支 -v 显示最新日志 -r远程仓库的地址分支 -a 本地远程所有分支 |
+| git branch -m oldBranch newBranch | 将分支改名 |
 | git  checkout 分支名             | 切换分支                     |
 | git  merge 分支名                | 把指定的分支合并到当前分支上 |
 |                                  |                              |
+
+
 
 
 

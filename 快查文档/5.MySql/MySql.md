@@ -1,7 +1,4 @@
-<<<<<<< HEAD
 # MySql
-
-
 
 
 
@@ -38,14 +35,35 @@ MySQL复制过程分成三步:
 
 #### 配置主从复制数据库
 
+> 参考文献https://blog.csdn.net/u013068184/article/details/107691389
+> 错误参考文献https://blog.csdn.net/weixin_45286211/article/details/117404539
+
 ##### 配置主库Master
 
 1.修改MySQL数据库的配置文件`vim /etc/my.cnf`，然后重启`systemctl  restart mysqld`
 
 ```
+###主从数据库配置核心部分
 [mysqld]
-log-bin=mysql-bin	#[必须]启用二进制日志
-server-id=100		#[必须]服务器唯一id(保证多台数据库服务器是唯一的即可)
+# 设置同步的binary log二进制日志文件名前缀，默认为binlog；在MySQL 8.0中，无论是否指定--log bin选项，默认情况下都会启用二进制日志记录，并将log_bin系统变量设置为ON。
+log-bin=mysql-bin
+# 服务器唯一id，默认为1，值范围为1～2^32−1. ；主数据库和从数据库的server-id不能重复
+server-id=1          
+
+###可选配置
+# 需要主从复制的数据库，如多个则重复配置
+binlog-do-db=studyDB
+# 复制过滤：也就是指定哪个数据库不用同步（mysql库一般不同步），如多个则重复配置
+binlog-ignore-db=mysql
+# 为每个session分配的内存，在事务过程中用来存储二进制日志的缓存
+binlog_cache_size=1M
+# 主从复制的格式（mixed,statement,row，默认格式是statement。建议是设置为row，主从复制时数据更加能够统一）
+binlog_format=row
+# 配置二进制日志自动删除/过期时间，单位秒，默认值为2592000，即30天；8.0.3版本之前使用expire_logs_days，单位天数，默认值为0，表示不自动删除。
+binlog_expire_logs_seconds=2592000
+# 跳过主从复制中遇到的所有错误或指定类型的错误，避免slave端复制中断，默认OFF关闭，可选值有OFF、all、ddl_exist_errors以及错误码列表。8.0.26版本之前使用slave_skip_errors
+# 如：1062错误是指一些主键重复，1032错误是因为主从数据库数据不一致
+replica_skip_errors=1062
 ```
 
 2.登录MySQL数据库，创建用户，授权
@@ -55,13 +73,15 @@ server-id=100		#[必须]服务器唯一id(保证多台数据库服务器是唯�
 ```
 mysql -uroot -p1qaz_123456
 ```
-- 创建用户
+- 创建用户(删除用户drop user 'test1'@'localhost';)
 
 > create user 'username'@'host' identified by 'password';
 > 其中username为自定义的用户名；host为登录域名，host为'%'时表示为 任意IP，为localhost时表示本机，或者填写指定的IP地址；paasword为密码
 
 ```
-create user 'xiaozhang'@'%' identified by '1qaz_123456';
+create user 'slave'@'%' identified by '1Qaz_123456';
+# 如果最后是connecting状态，使用如下的重建用户
+# CREATE USER 'slave'@'%' IDENTIFIED WITH sha256_password BY '1Qaz_123456';
 ```
 
 - 给用户授权
@@ -70,7 +90,9 @@ create user 'xiaozhang'@'%' identified by '1qaz_123456';
 > 其中`*.*`第一个`*`表示所有数据库，第二个`*`表示所有数据表，如果不想授权全部那就把对应的`*`写成相应数据库或者数据表；`username`为指定的用户；`%`为该用户登录的域名
 
 ```
-grant all privileges on *.* to 'xiaozhang'@'%' with grant option; 
+#grant all privileges on *.* to 'slave'@'%' with grant option; 
+GRANT REPLICATION SLAVE ON *.* TO 'slave'@'%'; #授予从库复制的权限
+FLUSH PRIVILEGES;		#刷新权限生效
 ```
 
 - 为从库准备配置数据
@@ -79,15 +101,40 @@ grant all privileges on *.* to 'xiaozhang'@'%' with grant option;
 show master status;
 ```
 
-![image-20230819115228951](MySql.assets/image-20230819115228951.png)
+![image-20230819180947389](MySql.assets/image-20230819180947389.png)
 
 ##### 配置从库slave
 
 - 修改MySQL数据库的配置文件 vim /etc/my.cnf
 
 ```
+###主从数据库配置核心部分
 [mysqld]
-server-id=101		#[必须]服务器唯一id(保证多台数据库服务器是唯一的即可)
+# 设置同步的binary log二进制日志文件名前缀，默认是binlog
+log-bin=mysql-bin
+# 服务器唯一id，默认为1，值范围为1～2^32−1. ；主数据库和从数据库的server-id不能重复
+server-id=101
+
+###可选配置
+# 需要主从复制的数据库 ，如多个则重复配置
+replicate-do-db=studyDB
+# 复制过滤：也就是指定哪个数据库不用同步（mysql库一般不同步） ，如多个则重复配置
+binlog-ignore-db=mysql
+# 为每个session分配的内存，在事务过程中用来存储二进制日志的缓存 
+binlog_cache_size=1M
+# 主从复制的格式（mixed,statement,row，默认格式是statement。建议是设置为row，主从复制时数据更加能够统一） 
+binlog_format=row
+# 配置二进制日志自动删除/过期时间，单位秒，默认值为2592000，即30天；8.0.3版本之前使用expire_logs_days，单位天数，默认值为0，表示不自动删除。
+binlog_expire_logs_seconds=2592000
+# 跳过主从复制中遇到的所有错误或指定类型的错误，避免slave端复制中断，默认OFF关闭，可选值有OFF、all、ddl_exist_errors以及错误码列表。8.0.26版本之前使用slave_skip_errors
+# 如：1062错误是指一些主键重复，1032错误是因为主从数据库数据不一致
+replica_skip_errors=1062
+# relay_log配置中继日志，默认采用 主机名-relay-bin 的方式保存日志文件 
+relay_log=replicas-mysql-relay-bin  
+# log_replica_updates表示slave是否将复制事件写进自己的二进制日志，默认值ON开启；8.0.26版本之前使用log_slave_updates
+log_replica_updates=ON
+# 防止改变数据(只读操作，除了特殊的线程)
+read_only=ON
 ```
 
 - 重启MySQL服务
@@ -99,22 +146,38 @@ systemctl restart mysqld
 - 登录MySQL（`mysql -uroot -p1qaz_123456`），执行如下sql，配置为从库
 
 ```
-change master to master_host='159.75.180.171',master_user='xiaozhang',master_password='Root@1qaz_123456',master_log_file='mysql-bin.000001',master_log_pos=715;
+CHANGE REPLICATION SOURCE TO SOURCE_HOST='159.75.180.171',SOURCE_PORT=3306,SOURCE_USER='slave',SOURCE_PASSWORD='1qaz_123456',SOURCE_AUTO_POSITION=1;
 ```
 
 - 启动slave线程
 
 ```
-start slave;
+#出现该错误Replica failed to initialize applier metadata structure from the repository，表示又之前的记录
+#reset slave;
+START REPLICA;
 ```
 
 - 查看从数据库的状态(粘贴到txt文件里看)
 
 ```
-show slave status;
+#低于8.0.22之执行
+#show slave status;
+#8.0.22后执行
+SHOW REPLICA STATUS;
 ```
 
 ![image-20230819115957813](MySql.assets/image-20230819115957813.png)
+
+- 停止主从复制
+
+```
+#低于8.0.22版本的语法：
+STOP SLAVE;
+#自8.0.22版本后的语法：
+STOP REPLICA;
+```
+
+
 
 ### Linux安装MySQL
 
@@ -150,6 +213,7 @@ rpm -ivh mysql-community-libs-8.0.34-1.el7.x86_64.rpm
 rpm -ivh mysql-community-devel-8.0.34-1.el7.x86_64.rpm
 rpm -ivh mysql-community-libs-compat-8.0.34-1.el7.x86_64.rpm
 rpm -ivh mysql-community-client-8.0.34-1.el7.x86_64.rpm
+yum install net-tools
 rpm -ivh mysql-community-server-8.0.34-1.el7.x86_64.rpm
 rpm -ivh mysql-community-icu-data-files-8.0.34-1.el7.x86_64.rpm
 rpm -ivh mysql-community-debuginfo-8.0.34-1.el7.x86_64.rpm
@@ -187,7 +251,7 @@ cat /var/log/mysqld.log | grep password		查看包含password的文件内容行�
 ```
 mysql -uroot -p								登录MySQL（使用临时密码）
 #修改密码
-set password = '1qaz_123456';			设置密码为1qaz_123456
+set password = '1Qaz_123456';			设置密码为1qaz_123456
 （先修改密码后才能设置长度和安全等级）
 set global validate_password.length = 4;		设置密码最低位数
 set global validate_password.policy = LOW;	设置密码安全等级低，便于密码可以修改成简单密码

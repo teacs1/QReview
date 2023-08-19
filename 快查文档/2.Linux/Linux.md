@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # Linux 
 
 ### 常用指令
@@ -158,6 +157,15 @@ grep "我" *.java
 #常与ps -ef连用
 ps -ef | grep tomcat	查询tomcat进程
 ```
+
+#### 14、查询本机ip方法
+
+| 查询本机ip方法 |          |
+| -------------- | -------- |
+| hostname -I    | ifconfig |
+| ip addr show   |          |
+
+
 
 #### 高级指令
 
@@ -379,7 +387,7 @@ cat /var/log/mysqld.log | grep password		查看包含password的文件内容行�
 ```
 mysql -uroot -p								登录MySQL（使用临时密码）
 #修改密码
-set password = '1qaz_123456';			设置密码为1qaz_123456
+set password = '1Qaz_123456';			设置密码为1Qaz_123456
 （先修改密码后才能设置长度和安全等级）
 set global validate_password.length = 4;		设置密码最低位数
 set global validate_password.policy = LOW;	设置密码安全等级低，便于密码可以修改成简单密码
