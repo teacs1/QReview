@@ -35,7 +35,9 @@ MySQL复制过程分成三步:
 
 
 
-#### 配置主库Master
+#### 配置主从复制数据库
+
+##### 配置主库Master
 
 1.修改MySQL数据库的配置文件`vim /etc/my.cnf`，然后重启`systemctl  restart mysqld`
 
@@ -50,7 +52,7 @@ server-id=100		#[必须]服务器唯一id(保证多台数据库服务器是唯�
 - 登录数据库
 
 ```
-mysql -uroot -p1qaz_8074
+mysql -uroot -p1qaz_123456
 ```
 - 创建用户
 
@@ -67,7 +69,42 @@ create user 'xiaozhang'@'%' identified by '1qaz_123456';
 > 其中`*.*`第一个`*`表示所有数据库，第二个`*`表示所有数据表，如果不想授权全部那就把对应的`*`写成相应数据库或者数据表；`username`为指定的用户；`%`为该用户登录的域名
 
 ```
-grant all privileges on *.* to 'username'@'%' with grant option; 
+grant all privileges on *.* to 'xiaozhang'@'%' with grant option; 
+```
+
+- 为从库准备配置数据
+
+```
+show master status;
+```
+
+![image-20230819115228951](MySql.assets/image-20230819115228951.png)
+
+##### 配置从库slave
+
+- 修改MySQL数据库的配置文件 vim /etc/my.cnf
+
+```
+[mysqld]
+server-id=101		#[必须]服务器唯一id(保证多台数据库服务器是唯一的即可)
+```
+
+- 重启MySQL服务
+
+```
+systemctl restart mysqld
+```
+
+- 登录MySQL（`mysql -uroot -p1qaz_123456`），执行如下sql，配置为从库
+
+```
+change master to master_host='159.75.180.171',master_user='xiaozhang',master_password='Root@1qaz_123456',master_log_file='mysql-bin.000001',master_log_pos=715;
+```
+
+- 启动slave线程
+
+```
+start slave;
 ```
 
 

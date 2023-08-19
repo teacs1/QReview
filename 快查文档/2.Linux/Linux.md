@@ -328,7 +328,7 @@ rpm -e --nodeps mariadb-libs-5.5.68-1.el7.x86_64
 ```
 将文件下载至/usr/local/mysql
 从包中解开
-tar -xvf
+tar -xvf mysql-8.0.34-1.el7.x86_64.rpm-bundle.tar -C /usr/local/mysql
 ```
 
 4. 按照顺序安装rpm软件包
@@ -340,6 +340,7 @@ rpm -ivh mysql-community-libs-8.0.34-1.el7.x86_64.rpm
 rpm -ivh mysql-community-devel-8.0.34-1.el7.x86_64.rpm
 rpm -ivh mysql-community-libs-compat-8.0.34-1.el7.x86_64.rpm
 rpm -ivh mysql-community-client-8.0.34-1.el7.x86_64.rpm
+yum install net-tools
 rpm -ivh mysql-community-server-8.0.34-1.el7.x86_64.rpm
 rpm -ivh mysql-community-icu-data-files-8.0.34-1.el7.x86_64.rpm
 rpm -ivh mysql-community-debuginfo-8.0.34-1.el7.x86_64.rpm
