@@ -48,7 +48,7 @@ MySQL复制过程分成三步:
 # 设置同步的binary log二进制日志文件名前缀，默认为binlog；在MySQL 8.0中，无论是否指定--log bin选项，默认情况下都会启用二进制日志记录，并将log_bin系统变量设置为ON。
 log-bin=mysql-bin
 # 服务器唯一id，默认为1，值范围为1～2^32−1. ；主数据库和从数据库的server-id不能重复
-server-id=1          
+server-id=100          
 
 ###可选配置
 # 需要主从复制的数据库，如多个则重复配置
@@ -79,9 +79,10 @@ mysql -uroot -p1qaz_123456
 > 其中username为自定义的用户名；host为登录域名，host为'%'时表示为 任意IP，为localhost时表示本机，或者填写指定的IP地址；paasword为密码
 
 ```
-create user 'slave'@'%' identified by '1Qaz_123456';
-# 如果最后是connecting状态，使用如下的重建用户
-# CREATE USER 'slave'@'%' IDENTIFIED WITH sha256_password BY '1Qaz_123456';
+# 使用第二种是connecting状态，就使用第一种重建用户
+CREATE USER 'slave'@'%' IDENTIFIED WITH sha256_password BY '1Qaz_123456';
+#create user 'slave'@'%' identified by '1Qaz_123456';
+
 ```
 
 - 给用户授权
@@ -101,7 +102,7 @@ FLUSH PRIVILEGES;		#刷新权限生效
 show master status;
 ```
 
-![image-20230819180947389](MySql.assets/image-20230819180947389.png)
+![image-20230822170657431](MySql.assets/image-20230822170657431.png)
 
 ##### 配置从库slave
 
@@ -113,11 +114,15 @@ show master status;
 # 设置同步的binary log二进制日志文件名前缀，默认是binlog
 log-bin=mysql-bin
 # 服务器唯一id，默认为1，值范围为1～2^32−1. ；主数据库和从数据库的server-id不能重复
-server-id=101
+server-id=2
+
+#开启 GTID
+gtid_mode=ON
+enforce_gtid_consistency=ON
 
 ###可选配置
 # 需要主从复制的数据库 ，如多个则重复配置
-replicate-do-db=studyDB
+replicate-do-db=test
 # 复制过滤：也就是指定哪个数据库不用同步（mysql库一般不同步） ，如多个则重复配置
 binlog-ignore-db=mysql
 # 为每个session分配的内存，在事务过程中用来存储二进制日志的缓存 
@@ -130,7 +135,7 @@ binlog_expire_logs_seconds=2592000
 # 如：1062错误是指一些主键重复，1032错误是因为主从数据库数据不一致
 replica_skip_errors=1062
 # relay_log配置中继日志，默认采用 主机名-relay-bin 的方式保存日志文件 
-relay_log=replicas-mysql-relay-bin  
+relay_log=replicas-mysql-relay-bin
 # log_replica_updates表示slave是否将复制事件写进自己的二进制日志，默认值ON开启；8.0.26版本之前使用log_slave_updates
 log_replica_updates=ON
 # 防止改变数据(只读操作，除了特殊的线程)
@@ -143,10 +148,16 @@ read_only=ON
 systemctl restart mysqld
 ```
 
-- 登录MySQL（`mysql -uroot -p1qaz_123456`），执行如下sql，配置为从库
+- 登录MySQL（`mysql -uroot -p1Qaz_123456`），执行如下sql，配置为从库
 
 ```
-CHANGE REPLICATION SOURCE TO SOURCE_HOST='159.75.180.171',SOURCE_PORT=3306,SOURCE_USER='slave',SOURCE_PASSWORD='1qaz_123456',SOURCE_AUTO_POSITION=1;
+##选择对应的
+#基于全局事务标识符（GTID）的方法
+CHANGE REPLICATION SOURCE TO SOURCE_HOST='159.75.180.171',SOURCE_PORT=3306,SOURCE_USER='slave',SOURCE_PASSWORD='1Qaz_123456',SOURCE_AUTO_POSITION=1;
+
+#基于二进制日志文件的方法
+#CHANGE REPLICATION SOURCE TO SOURCE_HOST='159.75.180.171',SOURCE_PORT=3310,SOURCE_USER='slave',SOURCE_PASSWORD='1Qaz_123456',SOURCE_LOG_FILE='mysql-bin.000002',SOURCE_LOG_POS=545;
+
 ```
 
 - 启动slave线程
@@ -178,6 +189,54 @@ STOP REPLICA;
 ```
 
 
+
+### 权限操作
+
+- 创建用户
+
+```
+create user 'test1'@'localhost' identified by '密码';
+create user 'test2'@'%' identified with mysql_native_password BY '密码';
+```
+
+- 修改密码
+
+```
+Alter user 'test1'@'localhost' identified by '新密码';
+flush privileges;
+```
+
+- 授权
+
+```
+grant all privileges on *.* to 'test1'@'localhost' with grant option;
+#all privileges 可换成select,update,insert,delete,drop,create等操作 如：grant select,insert,update,delete on . to 'test1'@'localhost';
+```
+
+- 刷新权限
+
+```
+flush privileges;
+```
+
+- 查看用户授权信息
+
+```ada
+show grants for 'test1'@'localhost;
+```
+
+- 撤销权限
+
+```pgsql
+revoke all privileges on *.* from 'test1'@'localhost';
+#用户有什么权限就撤什么权限
+```
+
+- 删除用户
+
+```n1ql
+drop user 'test1'@'localhost';
+```
 
 ### Linux安装MySQL
 

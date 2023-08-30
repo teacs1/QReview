@@ -158,7 +158,7 @@ grep "我" *.java
 ps -ef | grep tomcat	查询tomcat进程
 ```
 
-#### 14、查询本机ip方法
+##### 14、查询本机ip方法
 
 | 查询本机ip方法 |          |
 | -------------- | -------- |
@@ -439,6 +439,37 @@ vim /usr/local/apache-maven-3.9.4/conf/settings.xml
 	-->	<localRepository>/usr/local/maven-repository</localRepository>
 ```
 
+##### Nginx
+
+- 安装nginx依赖的包
+
+```
+yum -y install gcc pcre-devel openssl openssl-devel
+```
+
+- 下载nginx并解压
+
+```
+#也可以本地下载后再传过去，或者使用如下方式
+wget https://nginx.org/download/nginx-1.22.1.tar.gz
+mkdir -p /usr/local/nginx
+```
+
+- 安装到目标目录
+
+```
+#指定需要安装的位置
+./configure --prefix=/usr/local/nginx
+安装 
+make && make install
+```
+
+
+
+##### Docker
+
+
+
 ##### 小工具包
 
 | 名称  | 指令                                   | 功能                       |
@@ -508,3 +539,12 @@ https://www.bilibili.com/video/BV13a411q753/?p=141&spm_id_from=pageDriver&vd_sou
 | 立即生效       | firewall-cmd --reload                                        |
 | 查看开放的端口 | firewall-cmd --zone=public --list-ports                      |
 | 重启防火墙     | systemctl enable firewalld                                   |
+
+### 遇到过的问题
+
+#### 端口被占用
+
+```
+sudo lsof -i :8080		使用该命令查询被占用的端口
+```
+
