@@ -174,7 +174,7 @@ ps -ef | grep tomcat	查询tomcat进程
 linux中权限分为三种：**读r、写w、执行x**
 Linux的文件调用权限分为三级︰文件**所有者**(Owner)、**用户组**(Group)、**其它用户**(Other Users)
 只有**文件所有者**和**超级用户**可以修改文件或目录的权限
-![image-20230816162645455](Linux.assets/image-20230816162645455.png)
+![image-20230816162645455](s0c8ljqxm.hn-bkt.clouddn.com/image-20230816162645455.png)
 
 ![image-20230816162808691](Linux.assets/image-20230816162808691.png)
 
