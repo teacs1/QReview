@@ -2,6 +2,32 @@
 
 
 
+### MySQL客户端语法
+
+|                       | 语法                                                         | 说明                   |
+| --------------------- | ------------------------------------------------------------ | ---------------------- |
+| 1.登录和登出数据库    | mysql -u用户名 -p密码                                        |                        |
+|                       | quit 或 exit 或 ctrl + d                                     |                        |
+| 2.数据库操作的SQL语句 | show databases;                                              | 查看数据库             |
+|                       | create database 数据库名 charset=utf8; <br />例： create database python charset=utf8; | 创建数据库             |
+|                       | use 数据库名;                                                | 使用数据库             |
+|                       | select database();                                           | 查看当前使用的数据库   |
+|                       | drop database 数据库名; <br />例： drop database python;     | 删除数据库-慎重        |
+| 3.表结构操作的SQL语句 | show tables;                                                 | 查看当前数据库中所有表 |
+|                       | create table students(<br/> id int unsigned primary key auto_increment not null,<br/> name varchar(20) not null,<br/> age tinyint unsigned default 0,<br/> height decimal(5,2),<br/> gender enum('男','女','人妖','保密')<br/>); | 创建表                 |
+| 4.用户权限            | create user 'username'@'host' identified by 'password';<br/>其中username为自定义的用户名；<br />host为登录域名，host为'%'时表示为 任意IP，为localhost时表示本机，或者填写指定的IP地址；paasword为密码 | 创建用户               |
+|                       | grant all privileges on *.* to 'username'@'%' with grant option; <br />其中`*.*`第一个`*`表示所有数据库，第二个`*`表示所有数据表，如果不想授权全部那就把对应的`*`写成相应数据库或者数据表；`username`为指定的用户；`%`为该用户登录的域名 | 用户授权               |
+
+
+
+
+
+```
+GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' IDENTIFIED BY '1Qaz_123456' WITH GRANT OPTION;
+```
+
+
+
 
 
 ### MySQL主从复制
@@ -33,7 +59,7 @@ MySQL复制过程分成三步:
 
 
 
-#### 配置主从复制数据库
+#### 配置主从复制数据库1
 
 > 参考文献https://blog.csdn.net/u013068184/article/details/107691389
 > 错误参考文献https://blog.csdn.net/weixin_45286211/article/details/117404539
@@ -187,6 +213,325 @@ STOP SLAVE;
 #自8.0.22版本后的语法：
 STOP REPLICA;
 ```
+
+#### 尚硅谷配置主从数据库2
+
+##### 2.1、准备主服务器
+
+- **step1：在docker中创建并启动MySQL主服务器：**`端口3306`
+
+```shell
+docker run -d \
+-p 3311:3306 \
+--restart=always \
+-v /docker/mysql/3311/conf:/etc/mysql/conf.d \
+-v /docker/mysql/3311/data:/var/lib/mysql \
+-e MYSQL_ROOT_PASSWORD=1Qaz_123456 \
+--name mysql-master \
+mysql:8.0.29
+```
+
+
+
+- **step2：创建MySQL主服务器配置文件：** 
+
+默认情况下MySQL的binlog日志是自动开启的，可以通过如下配置定义一些可选配置
+
+```shell
+vim /docker/mysql/3311/conf/my.cnf
+```
+
+配置如下内容
+
+```properties
+[mysqld]
+# 服务器唯一id，默认值1
+server-id=1
+# 设置日志格式，默认值ROW
+binlog_format=STATEMENT
+# 二进制日志名，默认binlog
+# log-bin=binlog
+# 设置需要复制的数据库，默认复制全部数据库
+#binlog-do-db=mytestdb
+# 设置不需要复制的数据库
+#binlog-ignore-db=mysql
+#binlog-ignore-db=infomation_schema
+```
+
+重启MySQL容器
+
+```shell
+docker restart atguigu-mysql-master
+```
+
+
+
+`binlog格式说明：`
+
+- binlog_format=STATEMENT：日志记录的是主机数据库的`写指令`，性能高，但是now()之类的函数以及获取系统参数的操作会出现主从数据不同步的问题。
+- binlog_format=ROW（默认）：日志记录的是主机数据库的`写后的数据`，批量操作时性能较差，解决now()或者  user()或者  @@hostname 等操作在主从机器上不一致的问题。
+- binlog_format=MIXED：是以上两种level的混合使用，有函数用ROW，没函数用STATEMENT，但是无法识别系统变量
+
+
+
+`binlog-ignore-db和binlog-do-db的优先级问题：`
+
+![img](assets/0.08703112216569037.png)
+
+
+
+
+
+- **step3：使用命令行登录MySQL主服务器：**
+
+```shell
+#进入容器：env LANG=C.UTF-8 避免容器中显示中文乱码
+docker exec -it mysql-master env LANG=C.UTF-8 /bin/bash
+#进入容器内的mysql命令行
+mysql -uroot -p1Qaz_123456
+#修改默认密码校验方式（遇到错误号码2058，原因mysql8的密码安全策略更严格了）
+ALTER USER 'root'@'%' IDENTIFIED WITH mysql_native_password BY '1Qaz_123456';
+```
+
+
+
+- **step4：主机中创建slave用户：**
+
+```sql
+-- 创建slave用户
+CREATE USER 'slave'@'%';
+-- 设置密码
+ALTER USER 'slave'@'%' IDENTIFIED WITH mysql_native_password BY '1Qaz_123456';
+-- 授予复制权限
+GRANT REPLICATION SLAVE ON *.* TO 'slave'@'%';
+-- 刷新权限
+FLUSH PRIVILEGES;
+```
+
+
+
+- **step5：主机中查询master状态：**
+
+执行完此步骤后`不要再操作主服务器MYSQL`，防止主服务器状态值变化
+
+```sql
+SHOW MASTER STATUS;
+```
+
+记下`File`和`Position`的值。执行完此步骤后不要再操作主服务器MYSQL，防止主服务器状态值变化。
+
+![image-20220804191852164](assets/image-20220804191852164.png)
+
+
+
+##### 2.2、准备从服务器
+
+可以配置多台从机slave1、slave2...，这里以配置slave1为例
+
+- **step1：在docker中创建并启动MySQL从服务器：**`端口3307`
+
+```shell
+docker run -d \
+-p 3312:3306 \
+--restart=always \
+-v /docker/mysql/3312/conf:/etc/mysql/conf.d \
+-v /docker/mysql/3312/data:/var/lib/mysql \
+-e MYSQL_ROOT_PASSWORD=1Qaz_123456 \
+--name mysql-slave1 \
+mysql:8.0.29
+
+------------------
+docker run -d \
+-p 3313:3306 \
+--restart=always \
+-v /docker/mysql/3313/conf:/etc/mysql/conf.d \
+-v /docker/mysql/3313/data:/var/lib/mysql \
+-e MYSQL_ROOT_PASSWORD=1Qaz_123456 \
+--name mysql-slave2 \
+mysql:8.0.29
+
+vim /docker/mysql/3313/conf/my.cnf
+
+[mysqld]
+# 服务器唯一id，每台服务器的id必须不同，如果配置其他从机，注意修改id
+server-id=3
+# 中继日志名，默认xxxxxxxxxxxx-relay-bin
+#relay-log=relay-bin
+
+docker restart mysql-slave2
+
+docker exec -it mysql-slave2 env LANG=C.UTF-8 /bin/bash
+mysql -uroot -p1Qaz_123456
+
+CHANGE MASTER TO MASTER_HOST='121.43.121.124', 
+MASTER_USER='slave',MASTER_PASSWORD='1Qaz_123456', MASTER_PORT=3311,
+MASTER_LOG_FILE='binlog.000008',MASTER_LOG_POS=157; 
+
+START SLAVE;
+-- 查看状态（不需要分号）
+SHOW SLAVE STATUS\G
+```
+
+
+
+- **step2：创建MySQL从服务器配置文件：** 
+
+```shell
+vim /docker/mysql/3312/conf/my.cnf
+```
+
+配置如下内容：
+
+```properties
+[mysqld]
+# 服务器唯一id，每台服务器的id必须不同，如果配置其他从机，注意修改id
+server-id=2
+# 中继日志名，默认xxxxxxxxxxxx-relay-bin
+#relay-log=relay-bin
+```
+
+重启MySQL容器
+
+```shell
+docker restart mysql-slave1
+```
+
+
+
+- **step3：使用命令行登录MySQL从服务器：**
+
+```shell
+#进入容器：
+docker exec -it mysql-slave1 env LANG=C.UTF-8 /bin/bash
+#进入容器内的mysql命令行
+mysql -uroot -p1Qaz_123456
+#修改默认密码校验方式
+ALTER USER 'root'@'%' IDENTIFIED WITH mysql_native_password BY '1Qaz_123456';
+```
+
+
+
+- **step4：在从机上配置主从关系：**
+
+在**从机**上执行以下SQL操作
+
+```sql
+CHANGE MASTER TO MASTER_HOST='121.43.121.124', 
+MASTER_USER='slave',MASTER_PASSWORD='1Qaz_123456', MASTER_PORT=3311,
+MASTER_LOG_FILE='binlog.000006',MASTER_LOG_POS=157; 
+```
+
+
+
+##### 2.3、启动主从同步
+
+启动从机的复制功能，执行SQL：
+
+```sql
+START SLAVE;
+-- 查看状态（不需要分号）
+SHOW SLAVE STATUS\G
+```
+
+
+
+**两个关键进程：**下面两个参数都是Yes，则说明主从配置成功！
+
+![img](assets/image-20220715000533951.png)
+
+
+
+##### 2.4、实现主从同步
+
+在主机中执行以下SQL，在从机中查看数据库、表和数据是否已经被同步
+
+```sql
+CREATE DATABASE db_user;
+USE db_user;
+CREATE TABLE t_user (
+ id BIGINT AUTO_INCREMENT,
+ uname VARCHAR(30),
+ PRIMARY KEY (id)
+);
+INSERT INTO t_user(uname) VALUES('zhang3');
+INSERT INTO t_user(uname) VALUES(@@hostname);
+```
+
+
+
+##### 2.5、停止和重置
+
+需要的时候，可以使用如下SQL语句
+
+```sql
+-- 在从机上执行。功能说明：停止I/O 线程和SQL线程的操作。
+stop slave; 
+
+-- 在从机上执行。功能说明：用于删除SLAVE数据库的relaylog日志文件，并重新启用新的relaylog文件。
+reset slave;
+
+-- 在主机上执行。功能说明：删除所有的binglog日志文件，并将日志索引文件清空，重新开始所有新的日志文件。
+-- 用于第一次进行搭建主从库时，进行主库binlog初始化工作；
+reset master;
+```
+
+
+
+##### **2.6、常见问题**
+
+###### 问题1
+
+启动主从同步后，常见错误是`Slave_IO_Running： No 或者 Connecting` 的情况，此时查看下方的 `Last_IO_ERROR`错误日志，根据日志中显示的错误信息在网上搜索解决方案即可
+
+![img](assets/image-20220714235426120.png)
+
+
+
+**典型的错误例如：**`Last_IO_Error: Got fatal error 1236 from master when reading data from binary log: 'Client requested master to start replication from position > file size'`
+
+**解决方案：**
+
+```sql
+-- 在从机停止slave
+SLAVE STOP;
+
+-- 在主机查看mater状态
+SHOW MASTER STATUS;
+-- 在主机刷新日志
+FLUSH LOGS;
+-- 再次在主机查看mater状态（会发现File和Position发生了变化）
+SHOW MASTER STATUS;
+-- 修改从机连接主机的SQL，并重新连接即可
+```
+
+
+
+###### 问题2
+
+启动docker容器后提示 `WARNING: IPv4 forwarding is disabled. Networking will not work.`
+
+![img](assets/image-20220715004850504.png)
+
+此错误，虽然不影响主从同步的搭建，但是如果想从远程客户端通过以下方式连接docker中的MySQL则没法连接
+
+```shell
+C:\Users\administrator>mysql -h 192.168.100.201 -P 3306 -u root -p
+```
+
+**解决方案：**
+
+```shell
+#修改配置文件：
+vim /usr/lib/sysctl.d/00-system.conf
+#追加
+net.ipv4.ip_forward=1
+#接着重启网络
+systemctl restart network
+```
+
+
+
+
 
 
 
